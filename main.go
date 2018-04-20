@@ -12,7 +12,7 @@ func main() {
 		command, _ := reader.ReadString('\n')
 		vm.Set("command", command)
 		vm.Run(`
-		console.log(text)
+		console.log(command)
 		`)
 	}
 }
