@@ -22,7 +22,7 @@ type FileBuffer struct{
 	Pos int
 	Length int
 	File io.ReadWriter
-	Bytes *ByteChain
+	Bytes ByteChain
 	Meta map[string]string
 }
 
@@ -32,7 +32,7 @@ type ByteChain struct{
 	Bytes []byte
 }
 
-var FB = FileBuffer{0, 0, nil, &ByteChain{nil, nil, nil}, map[string]string{}}
+var FB FileBuffer
 
 // Use from builtin functions made available to JS to signal problem or success
 var t, _ = vm.ToValue(true)
@@ -101,7 +101,7 @@ func openFullFile(filename string) error {
 	l := len(bytes)
 	m := make(map[string]string)
 	m["filename"] = filename
-	FB = FileBuffer{0, l, file, &ByteChain{nil,nil,bytes}, m}
+	FB = FileBuffer{0, l, file, ByteChain{nil,nil,bytes}, m}
 	return nil
 }
 
@@ -138,7 +138,7 @@ func printLines(from, many int, page bool) {
 			}
 		}
 		if b.Next != nil {
-			b = b.Next
+			b = *b.Next
 		} else {
 			return
 		}
