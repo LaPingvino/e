@@ -5,11 +5,13 @@ import "os"
 import logpkg "log"
 import "github.com/robertkrimen/otto"
 import "strings"
+import "fmt"
+import "io/ioutil"
 
 var COMMANDS = make(map[string]func([]string) error) // Map of native commands.
 // JS can add to COMMANDS with def(command, function)
 var vm = otto.New() // JS environment
-var log = logpkg.New(os.Stderr, "Logging is on: ", 0) // During development this is on
+var log = logpkg.New(ioutil.Discard, "", 0) // Change ioutil.Discard to something else for logging
 var commandBuffer []string // When something doesn't read as a command, add to buffer
 
 // Use from builtin functions made available to JS to signal problem or success
@@ -77,7 +79,7 @@ func main() {
 		return nil
 	}
 	COMMANDS["runjs"] = func(js []string) error {
-		jss := strings.Join(js[:len(js)-1], "\n")
+		jss := strings.Join(js, "\n")
 		v, err := vm.Run(jss)
 		log.Println(v)
 		return err
@@ -90,6 +92,21 @@ func main() {
 		commandBuffer = cb[:len(cb)-1]
 		return nil
 	}
+	COMMANDS["cb"] = func(cb []string) error {
+		cbs := strings.Join(cb, "\n")
+		fmt.Println(cbs)
+		return nil
+	}
+	COMMANDS["log on"] = func(_ []string) error {
+		log = logpkg.New(os.Stderr, "Log: ", 0)
+		return nil
+	}
+	COMMANDS["log off"] = func(msg []string) error {
+		msgs := strings.Join(msg, "")
+		log = logpkg.New(ioutil.Discard, msgs, 0)
+		return nil
+	}
+
 
 	for {
 		command, _ := reader.ReadString('\n')
@@ -98,14 +115,16 @@ func main() {
 		if len(command) > 0 && command[0] == '.' {
 			command = command[1:]
 		}
-		commandBuffer = append(commandBuffer, command)
 		if ok {
 			log.Println("Enter native command exec")
 			err := run(commandBuffer)
 			if err != nil {
-				os.Stderr.WriteString(err.Error())
+				os.Stderr.WriteString(err.Error()+"\n")
+			} else {
+				os.Stderr.WriteString("!\n")
 			}
 		} else {
+			commandBuffer = append(commandBuffer, command)
 			log.Printf("%#v", command)
 		}
 	}
