@@ -106,7 +106,18 @@ func main() {
 		log = logpkg.New(ioutil.Discard, msgs, 0)
 		return nil
 	}
+	COMMANDS["commands"] = func(_ []string) error {
+		fmt.Print("Available commands: ")
+		var ks []string
+		for k := range COMMANDS {
+			ks = append(ks, k)
+		}
+		fmt.Println(strings.Join(ks, ", "))
+		return nil
+	}
 
+
+	os.Stderr.WriteString("Welcome to " + os.Args[0] + ", a modern line editor with support for extension via JavaScript.\nType 'commands' to see the available commands on your system at any moment.\n")
 
 	for {
 		command, _ := reader.ReadString('\n')
