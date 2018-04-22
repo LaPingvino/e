@@ -13,16 +13,16 @@ import "strconv"
 var COMMANDS = make(map[string]func([]string) error) // Map of native commands.
 // JS can add to COMMANDS with def(command, function)
 var vm = otto.New()                         // JS environment
-var log = logpkg.New(ioutil.Discard, "", 0) // Change ioutil.Discard to something else for logging
+var log = logpkg.New(ioutil.Discard, "", 0) // Dummy logger (logging turned off)
 var commandBuffer []string                  // When something doesn't read as a command, add to buffer
 var Line int
 
 type FileBuffer struct {
-	Pos    int
-	Length int
-	File   io.ReadWriter
+	Pos      int
+	Length   int
+	File     io.ReadWriter
 	Contents []string
-	Meta   map[string]string
+	Meta     map[string]string
 }
 
 var FB FileBuffer
@@ -83,6 +83,7 @@ func runEditorCommand(call otto.FunctionCall) otto.Value {
 }
 
 func openFullFile(filename string) error {
+	FB = FileBuffer{0, 0, nil, nil, map[string]string{"filename": filename}}
 	file, err := os.Open(filename)
 	if err != nil {
 		return err
@@ -99,6 +100,7 @@ func openFullFile(filename string) error {
 }
 
 func saveFullFile(filename string) error {
+	log.Printf("Metadata: %#v\n", FB.Meta)
 	if filename == "" {
 		file, ok := FB.Meta["filename"]
 		if !ok {
@@ -114,7 +116,7 @@ func saveFullFile(filename string) error {
 		}
 	}
 	return ioutil.WriteFile(filename,
-		[]byte(strings.Join(FB.Contents,"\n")+"\n"),
+		[]byte(strings.Join(FB.Contents, "\n")+"\n"),
 		perm)
 }
 
@@ -139,6 +141,43 @@ func printLines(from, many int, page bool) {
 		fmt.Println(FB.Contents[i])
 		Line = i
 		if page && (i+1)%mod == 0 {
+			if s, _ := bufio.NewReader(os.Stdin).ReadString('\n'); s[:1] == "q" {
+				return
+			}
+		}
+	}
+}
+
+func simpleSearch(keyword string, many int, page bool) {
+	log.Printf("Running printLines with %v, %v and %v\n", keyword, many, page)
+	mod := many // Page per mod lines
+	from := Line
+	var readall bool
+	if many == 0 {
+		mod = 1
+		readall = true
+	}
+	if page {
+		readall = true
+	}
+	FB.Contents = perLine(FB.Contents)
+	var q int
+	if many < 0 {
+		many = -many
+		from = 0
+	}
+	for i, line := range FB.Contents {
+		log.Println("Value of i: ", i)
+		if !strings.Contains(line, keyword) || i < from {
+			continue
+		}
+		q++
+		if !readall && q > many {
+			return
+		}
+		fmt.Println(i, ": ", line)
+		Line = i
+		if page && q%mod == 0 {
 			if s, _ := bufio.NewReader(os.Stdin).ReadString('\n'); s[:1] == "q" {
 				return
 			}
@@ -288,7 +327,7 @@ func main() {
 	COMMANDS["d"] = func(_ []string) error {
 		FB.Contents = perLine(FB.Contents)
 		if Line+1 <= len(FB.Contents) {
-			before := FB.Contents[:Line]
+			before := FB.Contents[:Line-1]
 			after := FB.Contents[Line+1:]
 			FB.Contents = append([]string(nil), before...)
 			FB.Contents = append(FB.Contents, after...)
@@ -298,8 +337,21 @@ func main() {
 		commandBuffer = nil
 		return nil
 	}
+	COMMANDS["search"] = func(contents []string) error {
+		if len(contents) == 0 {
+			return fmt.Errorf("keyword missing")
+		}
+		var n int
+		if len(contents) > 1 {
+			n, _ = strconv.Atoi(contents[1])
+		}
+		simpleSearch(contents[0], n, true)
+		commandBuffer = nil
+		return nil
+	}
 	COMMANDS["save"] = func(path []string) error {
 		filename := strings.Join(path, string(os.PathSeparator))
+		commandBuffer = nil
 		return saveFullFile(filename)
 	}
 
