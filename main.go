@@ -332,7 +332,7 @@ func main() {
 			after := FB.Contents[Line+1:]
 			FB.Contents = append([]string(nil), before...)
 			FB.Contents = append(FB.Contents, after...)
-		} else {
+		} else if len(FB.Contents) != 0 {
 			FB.Contents = FB.Contents[:len(FB.Contents)-1]
 		}
 		commandBuffer = nil
@@ -387,5 +387,6 @@ func main() {
 		}
 	}
 }
+
 
 
