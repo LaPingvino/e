@@ -326,8 +326,9 @@ func main() {
 	}
 	COMMANDS["d"] = func(_ []string) error {
 		FB.Contents = perLine(FB.Contents)
-		if Line+1 <= len(FB.Contents) {
-			before := FB.Contents[:Line-1]
+		if Line+1 < len(FB.Contents) {
+			log.Println(Line, Line-1, Line+1)
+			before := FB.Contents[:Line]
 			after := FB.Contents[Line+1:]
 			FB.Contents = append([]string(nil), before...)
 			FB.Contents = append(FB.Contents, after...)
@@ -386,3 +387,5 @@ func main() {
 		}
 	}
 }
+
+
