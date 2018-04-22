@@ -98,6 +98,26 @@ func openFullFile(filename string) error {
 	return nil
 }
 
+func saveFullFile(filename string) error {
+	if filename == "" {
+		file, ok := FB.Meta["filename"]
+		if !ok {
+			return fmt.Errorf("no filename available")
+		}
+		filename = file
+	}
+	perm := os.ModePerm
+	if file, ok := FB.File.(*os.File); ok {
+		fi, err := file.Stat()
+		if err != nil {
+			perm = fi.Mode()
+		}
+	}
+	return ioutil.WriteFile(filename,
+		[]byte(strings.Join(FB.Contents,"\n")+"\n"),
+		perm)
+}
+
 func printLines(from, many int, page bool) {
 	log.Printf("Running printLines with %v, %v and %v\n", from, many, page)
 	mod := many // Page per mod lines
@@ -277,6 +297,10 @@ func main() {
 		}
 		commandBuffer = nil
 		return nil
+	}
+	COMMANDS["save"] = func(path []string) error {
+		filename := strings.Join(path, string(os.PathSeparator))
+		return saveFullFile(filename)
 	}
 
 	os.Stderr.WriteString("Welcome to " + os.Args[0] + ", a modern line editor with support for extension via JavaScript.\nType 'commands' to see the available commands on your system at any moment.\n")
