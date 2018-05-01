@@ -195,6 +195,16 @@ func perLine(in []string) (out []string) {
 	return out
 }
 
+func NativeCommand(run func([]string) error, cb []string) {
+	log.Println("Enter native command exec")
+	err := run(cb)
+	if err != nil {
+		os.Stderr.WriteString(err.Error() + "\n")
+	} else {
+		os.Stderr.WriteString("!\n")
+	}
+}
+
 func main() {
 	if len(os.Args) > 1 {
 		openFullFile(os.Args[1])
@@ -211,7 +221,6 @@ func main() {
 		jss := strings.Join(js, "\n")
 		v, err := vm.Run(jss)
 		log.Println(v)
-		commandBuffer = nil
 		return err
 	}
 	COMMANDS["oops!"] = func(_ []string) error {
@@ -246,7 +255,6 @@ func main() {
 	}
 	COMMANDS["open"] = func(path []string) error {
 		paths := strings.Join(path, string(os.PathSeparator))
-		commandBuffer = nil
 		return openFullFile(paths)
 	}
 	COMMANDS["print"] = func(pos []string) error {
@@ -264,7 +272,6 @@ func main() {
 			os.Stderr.WriteString("?")
 			log.Println("commandbuffer too full")
 		}
-		commandBuffer = nil
 		return nil
 	}
 	COMMANDS["page"] = func(pos []string) error {
@@ -282,7 +289,6 @@ func main() {
 			os.Stderr.WriteString("?")
 			log.Println("commandbuffer too full")
 		}
-		commandBuffer = nil
 		return nil
 	}
 	COMMANDS["r"] = func(line []string) error {
@@ -293,7 +299,6 @@ func main() {
 		} else {
 			FB.Contents = append(FB.Contents, line...)
 		}
-		commandBuffer = nil
 		return nil
 	}
 	COMMANDS["i"] = func(line []string) error {
@@ -307,7 +312,6 @@ func main() {
 		} else {
 			FB.Contents = append(FB.Contents, line...)
 		}
-		commandBuffer = nil
 		return nil
 	}
 	COMMANDS["a"] = func(line []string) error {
@@ -321,7 +325,6 @@ func main() {
 		} else {
 			FB.Contents = append(FB.Contents, line...)
 		}
-		commandBuffer = nil
 		return nil
 	}
 	COMMANDS["d"] = func(_ []string) error {
@@ -335,7 +338,6 @@ func main() {
 		} else if len(FB.Contents) != 0 {
 			FB.Contents = FB.Contents[:len(FB.Contents)-1]
 		}
-		commandBuffer = nil
 		return nil
 	}
 	COMMANDS["search"] = func(contents []string) error {
@@ -347,12 +349,10 @@ func main() {
 			n, _ = strconv.Atoi(contents[1])
 		}
 		simpleSearch(contents[0], n, true)
-		commandBuffer = nil
 		return nil
 	}
 	COMMANDS["save"] = func(path []string) error {
 		filename := strings.Join(path, string(os.PathSeparator))
-		commandBuffer = nil
 		return saveFullFile(filename)
 	}
 
@@ -363,7 +363,20 @@ func main() {
 		reader := bufio.NewReader(os.Stdin)
 		command, _ := reader.ReadString('\n')
 		command = strings.TrimRight(command, "\n\r")
+		commands := strings.Split(command, ":")
+		cb := make([]string, len(commands)-1)
 		run, ok := COMMANDS[command]
+		if !ok && len(commands) > 1 {
+			run, ok = COMMANDS[commands[0]]
+			copy(cb,commands[1:])
+			if commands[len(commands)-1] == "" {
+				log.Println("Clear commandBuffer")
+				commandBuffer = nil
+			}
+			log.Printf("cb is now: %#v\n", cb)
+		} else {
+			cb = commandBuffer
+		}
 		if len(command) > 0 {
 			switch command[:1] {
 			case ".":
@@ -374,19 +387,11 @@ func main() {
 			}
 		}
 		if ok {
-			log.Println("Enter native command exec")
-			err := run(commandBuffer)
-			if err != nil {
-				os.Stderr.WriteString(err.Error() + "\n")
-			} else {
-				os.Stderr.WriteString("!\n")
-			}
+			log.Printf("2:cb is now: %#v\n", cb)
+			NativeCommand(run, cb)
 		} else {
 			commandBuffer = append(commandBuffer, command)
 			log.Printf("%#v", command)
 		}
 	}
 }
-
-
-
