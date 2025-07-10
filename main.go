@@ -43,9 +43,6 @@ func addCommand(call otto.FunctionCall) otto.Value {
 	}
 	log.Println("Adding command ", command)
 	function := call.Argument(1)
-	if err != nil {
-		return f
-	}
 	COMMANDS[command] = func(cb []string) error {
 		cbs := strings.Join(cb, "\n")
 		_, err := function.Call(f, cbs)
@@ -130,6 +127,10 @@ func printLines(from, many int, page bool) {
 	}
 	if page {
 		readall = true
+	}
+	// Handle negative from index
+	if from < 0 {
+		from = 0
 	}
 	to := from + many - 1
 	FB.Contents = perLine(FB.Contents)

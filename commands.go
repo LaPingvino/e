@@ -25,7 +25,9 @@ func initCommands() {
 		return nil
 	}
 	COMMANDS["oops"] = func(cb []string) error {
-		commandBuffer = cb[:len(cb)-1]
+		if len(commandBuffer) > 0 {
+			commandBuffer = commandBuffer[:len(commandBuffer)-1]
+		}
 		return nil
 	}
 	COMMANDS["cb"] = func(cb []string) error {
@@ -126,7 +128,13 @@ func initCommands() {
 	}
 	COMMANDS["d"] = func(_ []string) error {
 		FB.Contents = perLine(FB.Contents)
-		if Line+1 < len(FB.Contents) {
+		if len(FB.Contents) == 0 {
+			return nil
+		}
+		if Line < 0 {
+			Line = 0
+		}
+		if Line < len(FB.Contents) {
 			log.Println(Line, Line-1, Line+1)
 			before := FB.Contents[:Line]
 			after := FB.Contents[Line+1:]
