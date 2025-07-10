@@ -92,7 +92,8 @@ func openFullFile(filename string) error {
 	l := len(bytes)
 	m := make(map[string]string)
 	m["filename"] = filename
-	FB = FileBuffer{0, l, file, []string{string(bytes)}, m}
+	content := perLine([]string{string(bytes)})
+	FB = FileBuffer{0, l, file, content, m}
 	return nil
 }
 
@@ -242,16 +243,192 @@ func main() {
 			case ".":
 				command = command[1:]
 			case ":":
-				Line, _ = strconv.Atoi(command[1:])
-				continue
+				// Only parse as line number if it's actually a number
+				if lineNum, err := strconv.Atoi(command[1:]); err == nil {
+					Line = lineNum
+					continue
+				}
 			}
 		}
 		if ok {
 			log.Printf("2:cb is now: %#v\n", cb)
 			NativeCommand(run, cb)
 		} else {
-			commandBuffer = append(commandBuffer, command)
-			log.Printf("%#v", command)
+			// Try ed-style command parsing
+			if parseEdCommand(command) {
+				// Command was handled by ed parser
+			} else {
+				commandBuffer = append(commandBuffer, command)
+				log.Printf("%#v", command)
+			}
 		}
 	}
+}
+
+// parseEdCommand parses and executes ed-style commands
+func parseEdCommand(command string) bool {
+	if command == "" {
+		return false
+	}
+	
+	// Handle simple single-character commands
+	switch command {
+	case "q":
+		os.Exit(0)
+		return true
+	case "p":
+		executePrint(".")
+		return true
+	case "l":
+		output, _ := executeList(".")
+		for _, line := range output {
+			fmt.Println(line)
+		}
+		return true
+	case "n":
+		output, _ := executeNumber(".")
+		for _, line := range output {
+			fmt.Println(line)
+		}
+		return true
+	case "=":
+		num, _ := executeEquals(".")
+		fmt.Println(num)
+		return true
+	case "u":
+		executeUndo()
+		return true
+	case "f":
+		err := executeFilename(command)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		}
+		return true
+	case "h":
+		err := executeHelp(false)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		}
+		return true
+	case "H":
+		err := executeHelp(true)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		}
+		return true
+	}
+	
+	// Handle file editing commands that may have arguments
+	if strings.HasPrefix(command, "e ") || command == "e" {
+		err := executeEdit(command)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		}
+		return true
+	}
+	
+	if strings.HasPrefix(command, "E ") || command == "E" {
+		err := executeEditUnconditional(command)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		}
+		return true
+	}
+	
+	// Handle commands with ranges
+	if strings.HasSuffix(command, "p") && len(command) > 1 {
+		rangeStr := command[:len(command)-1]
+		err := executePrint(rangeStr)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		}
+		return true
+	}
+	
+	if strings.HasSuffix(command, "l") && len(command) > 1 {
+		rangeStr := command[:len(command)-1]
+		output, err := executeList(rangeStr)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		} else {
+			for _, line := range output {
+				fmt.Println(line)
+			}
+		}
+		return true
+	}
+	
+	if strings.HasSuffix(command, "n") && len(command) > 1 {
+		rangeStr := command[:len(command)-1]
+		output, err := executeNumber(rangeStr)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		} else {
+			for _, line := range output {
+				fmt.Println(line)
+			}
+		}
+		return true
+	}
+	
+	if strings.HasSuffix(command, "d") && len(command) > 1 {
+		rangeStr := command[:len(command)-1]
+		err := executeDelete(rangeStr)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		}
+		return true
+	}
+	
+	if strings.HasSuffix(command, "=") && len(command) > 1 {
+		rangeStr := command[:len(command)-1]
+		num, err := executeEquals(rangeStr)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		} else {
+			fmt.Println(num)
+		}
+		return true
+	}
+	
+	// Handle substitute commands
+	if strings.Contains(command, "s/") {
+		err := executeSubstitute(command)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		}
+		return true
+	}
+	
+	// Handle global commands
+	if strings.HasPrefix(command, "g/") {
+		err := executeGlobal(command)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		}
+		return true
+	}
+	
+	// Handle inverse global commands
+	if strings.HasPrefix(command, "v/") {
+		err := executeInverseGlobal(command)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		}
+		return true
+	}
+	
+	// Handle shell commands
+	if strings.HasPrefix(command, "!") {
+		shellCmd := command[1:]
+		output, err := executeShellCommand(shellCmd)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		} else {
+			fmt.Print(output)
+		}
+		return true
+	}
+	
+	return false
 }

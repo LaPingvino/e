@@ -14,6 +14,10 @@ func initCommands() {
 		os.Exit(0)
 		return nil
 	}
+	COMMANDS["q"] = func(_ []string) error {
+		os.Exit(0)
+		return nil
+	}
 	COMMANDS["runjs"] = func(js []string) error {
 		jss := strings.Join(js, "\n")
 		v, err := vm.Run(jss)
@@ -159,5 +163,173 @@ func initCommands() {
 	COMMANDS["save"] = func(path []string) error {
 		filename := strings.Join(path, string(os.PathSeparator))
 		return saveFullFile(filename)
+	}
+	
+	// Enhanced ed commands
+	COMMANDS["c"] = func(cb []string) error {
+		rangeStr := "."
+		if len(cb) > 0 && cb[0] != "" {
+			rangeStr = cb[0]
+		}
+		newLines := cb[1:]
+		return executeChange(rangeStr, newLines)
+	}
+	COMMANDS["m"] = func(cb []string) error {
+		if len(cb) < 2 {
+			return fmt.Errorf("move command requires source range and destination")
+		}
+		return executeMove(cb[0], cb[1])
+	}
+	COMMANDS["t"] = func(cb []string) error {
+		if len(cb) < 2 {
+			return fmt.Errorf("copy command requires source range and destination")
+		}
+		return executeCopy(cb[0], cb[1])
+	}
+	COMMANDS["j"] = func(cb []string) error {
+		rangeStr := ".,+1"
+		if len(cb) > 0 && cb[0] != "" {
+			rangeStr = cb[0]
+		}
+		return executeJoin(rangeStr)
+	}
+	COMMANDS["s"] = func(cb []string) error {
+		if len(cb) == 0 {
+			return fmt.Errorf("substitute command requires pattern")
+		}
+		return executeSubstitute(strings.Join(cb, " "))
+	}
+	COMMANDS["g"] = func(cb []string) error {
+		if len(cb) == 0 {
+			return fmt.Errorf("global command requires pattern")
+		}
+		return executeGlobal(strings.Join(cb, " "))
+	}
+	COMMANDS["k"] = func(cb []string) error {
+		if len(cb) == 0 {
+			return fmt.Errorf("mark command requires mark character")
+		}
+		return executeMark(Line, cb[0])
+	}
+	COMMANDS["u"] = func(cb []string) error {
+		return executeUndo()
+	}
+	COMMANDS["y"] = func(cb []string) error {
+		rangeStr := "."
+		if len(cb) > 0 && cb[0] != "" {
+			rangeStr = cb[0]
+		}
+		return executeYank(rangeStr)
+	}
+	COMMANDS["x"] = func(cb []string) error {
+		address := "."
+		if len(cb) > 0 && cb[0] != "" {
+			address = cb[0]
+		}
+		return executePut(address)
+	}
+	COMMANDS["w"] = func(cb []string) error {
+		rangeStr := "%"
+		filename := ""
+		if len(cb) > 0 && cb[0] != "" {
+			rangeStr = cb[0]
+		}
+		if len(cb) > 1 && cb[1] != "" {
+			filename = cb[1]
+		}
+		return executeWrite(rangeStr, filename)
+	}
+	COMMANDS["W"] = func(cb []string) error {
+		rangeStr := "%"
+		filename := ""
+		if len(cb) > 0 && cb[0] != "" {
+			rangeStr = cb[0]
+		}
+		if len(cb) > 1 && cb[1] != "" {
+			filename = cb[1]
+		}
+		return executeWriteAppend(rangeStr, filename)
+	}
+	COMMANDS["e"] = func(cb []string) error {
+		filename := ""
+		if len(cb) > 0 && cb[0] != "" {
+			filename = cb[0]
+		}
+		command := "e"
+		if filename != "" {
+			command = "e " + filename
+		}
+		return executeEdit(command)
+	}
+	COMMANDS["E"] = func(cb []string) error {
+		filename := ""
+		if len(cb) > 0 && cb[0] != "" {
+			filename = cb[0]
+		}
+		command := "E"
+		if filename != "" {
+			command = "E " + filename
+		}
+		return executeEditUnconditional(command)
+	}
+	COMMANDS["R"] = func(cb []string) error {
+		address := "$"
+		filename := ""
+		if len(cb) > 0 && cb[0] != "" {
+			filename = cb[0]
+		}
+		return executeRead(address, filename)
+	}
+	COMMANDS["l"] = func(cb []string) error {
+		rangeStr := "."
+		if len(cb) > 0 && cb[0] != "" {
+			rangeStr = cb[0]
+		}
+		output, err := executeList(rangeStr)
+		if err != nil {
+			return err
+		}
+		for _, line := range output {
+			fmt.Println(line)
+		}
+		return nil
+	}
+	COMMANDS["n"] = func(cb []string) error {
+		rangeStr := "."
+		if len(cb) > 0 && cb[0] != "" {
+			rangeStr = cb[0]
+		}
+		output, err := executeNumber(rangeStr)
+		if err != nil {
+			return err
+		}
+		for _, line := range output {
+			fmt.Println(line)
+		}
+		return nil
+	}
+	COMMANDS["="] = func(cb []string) error {
+		address := "."
+		if len(cb) > 0 && cb[0] != "" {
+			address = cb[0]
+		}
+		num, err := executeEquals(address)
+		if err != nil {
+			return err
+		}
+		fmt.Println(num)
+		return nil
+	}
+	COMMANDS["!"] = func(cb []string) error {
+		if len(cb) == 0 {
+			return fmt.Errorf("shell command required")
+		}
+		command := strings.Join(cb, " ")
+		output, err := executeShellCommand(command)
+		if err != nil {
+			return err
+		}
+		fmt.Print(output)
+		return nil
 	}
 }
